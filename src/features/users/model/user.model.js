@@ -89,19 +89,18 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 
-// // 🔐 Pre-save middleware להצפנת סיסמה
-// userSchema.pre('save', async function(next) {
-//     if (!this.isModified('password')) return next()
+// 🔐 Pre-save middleware להצפנת סיסמה
+userSchema.pre('save', async function () {
+    if (!this.isModified('password')) return
 
-//     const salt = await bcrypt.genSalt(12)
-//     this.password = await bcrypt.hash(this.password, salt)
-//     next()
-// })
+    const salt = await bcrypt.genSalt(10)
+    this.password = await bcrypt.hash(this.password, salt)
+})
 
 
-// // 🔐 השוואת סיסמה
-// userSchema.methods.comparePassword = async function(candidatePassword) {
-//     return bcrypt.compare(candidatePassword, this.password)
-// }
+// 🔐 השוואת סיסמה
+userSchema.methods.comparePassword = async function(candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password)
+}
 
  export default mongoose.model('User', userSchema)
