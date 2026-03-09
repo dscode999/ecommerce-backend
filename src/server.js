@@ -1,6 +1,6 @@
 import express from 'express'
 import { connectDB } from './config/db.js';
-
+import { errorHandler } from './shared/middleware/error.handler.js';
 import authRout from './features/auth/routes/auth.route.js';
 import productRouter from './features/products/routes/product.route.js';
 import orderRouter from './features/orders/routes/order.route.js';
@@ -21,6 +21,8 @@ app.use("/api/v1/cart",cartRoute)
 app.use("/", (req, res) => {
     res.send("fallback-404 Error");
 });
+
+app.use(errorHandler)
 
 await connectDB()
     .then(() => {
