@@ -1,5 +1,7 @@
 import User from '../../users/model/user.model.js'
 import bcrypt from 'bcrypt'
+import crypto from 'crypto'
+
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import { sendVerificationEmail, sendResetPasswordEmail, send2FAEmail } from '../auth.service.js'
@@ -20,7 +22,7 @@ export const register = async (req, res) => {
             })
         }
 
-        
+
 
         const user = await User.create({
             name,
@@ -30,15 +32,12 @@ export const register = async (req, res) => {
         })
 
         // יצירת טוקן אימות
-        const emailToken = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: "24h" }
-        )
+        const emailToken = crypto.randomBytes(32).toString('hex')
 
         user.verificationToken = emailToken
         user.verificationTokenExpiry = Date.now() + 24 * 60 * 60 * 1000
         await user.save()
+
 
         sendVerificationEmail(user, emailToken)
 
@@ -64,27 +63,22 @@ export const verifyEmail = async (req, res) => {
     try {
         const { token } = req.params
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const user = await User.findById(decoded.userId)
+        const user = await User.findOne({
+            verificationToken: token,
+            verificationTokenExpiry: { $gt: Date.now() }
+        })
 
         if (!user) {
-            return res.status(404).json({
-                status: 404,
-                message: "User not found",
-                data: null
-            })
-        }
-
-        if (user.isVerified) {
             return res.status(400).json({
                 status: 400,
-                message: "Email already verified",
+                message: "Invalid or expired token",
                 data: null
             })
         }
 
         user.isVerified = true
+        user.verificationToken = undefined
+        user.verificationTokenExpiry = undefined
         await user.save()
 
         res.status(200).json({
@@ -319,13 +313,7 @@ export const verify2FA = async (req, res) => {
     try {
         const { email, code } = req.body
 
-        if (!email || !code) {
-            return res.status(400).json({
-                status: 400,
-                message: "Email and code are required",
-                data: null
-            })
-        }
+
 
         const user = await User.findOne({ email })
 
