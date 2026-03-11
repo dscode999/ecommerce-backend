@@ -7,12 +7,7 @@ export const createOrder = async (req, res) => {
 
         const userId = req.user.userId
 
-        if (!items || items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No order items'
-            })
-        }
+
 
         let totalPrice = 0
         const orderItems = []
@@ -126,6 +121,8 @@ export const getOrderById = async (req, res) => {
         })
 
     } catch (error) {
+        console.log(error);
+        
         res.status(500).json({
             success: false,
             message: "Server error"
@@ -135,36 +132,36 @@ export const getOrderById = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
     try {
-      const page = Number(req.query.page) || 1
-      const limit = Number(req.query.limit) || 10
-      const skip = (page - 1) * limit
-  
-      const total = await Order.countDocuments()
-  
-      const orders = await Order.find()
-        .populate('user', 'name email')
-        .populate('items.product', 'name price images')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-  
-      res.status(200).json({
-        success: true,
-        page,
-        totalPages: Math.ceil(total / limit),
-        totalOrders: total,
-        data: orders
-      })
-  
+        const page = Number(req.query.page) || 1
+        const limit = Number(req.query.limit) || 10
+        const skip = (page - 1) * limit
+
+        const total = await Order.countDocuments()
+
+        const orders = await Order.find()
+            .populate('user', 'name email')
+            .populate('items.product', 'name price images')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+
+        res.status(200).json({
+            success: true,
+            page,
+            totalPages: Math.ceil(total / limit),
+            totalOrders: total,
+            data: orders
+        })
+
     } catch (error) {
-      console.error(error);
-      // חשוב לדיבאג
-      res.status(500).json({
-        success: false,
-        message: "Server error"
-      })
+        console.error(error);
+        // חשוב לדיבאג
+        res.status(500).json({
+            success: false,
+            message: "Server error"
+        })
     }
-  }
+}
 
 
 export const updateOrderStatus = async (req, res) => {
@@ -173,20 +170,6 @@ export const updateOrderStatus = async (req, res) => {
         const { id } = req.params
         const { orderStatus } = req.body
 
-        const validStatuses = [
-            'pending',
-            'processing',
-            'shipped',
-            'delivered',
-            'cancelled'
-        ]
-
-        if (!validStatuses.includes(orderStatus)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid order status"
-            })
-        }
 
         const order = await Order.findById(id)
 
