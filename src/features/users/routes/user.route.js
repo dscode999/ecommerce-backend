@@ -13,8 +13,8 @@ userRoute.put('/addresses/:addrId', authenticate, authorize('customer',), update
 userRoute.delete('/addresses/:addrId', authenticate, authorize('customer'), deleteAddress)
 //====Admin-PART
 userRoute.get('/', authenticate, authorize('admin'), getAllUsers)
-userRoute.put('/:id/role', authenticate, authorize('admin'), updateUserRole)
-userRoute.delete('/:id', authenticate, authorize('admin'), deleteUser)
+userRoute.put('/:id/role', authenticate, authorize('admin'), validate(objectIdSchema, 'params'), updateUserRole)
+userRoute.delete('/:id', authenticate, authorize('admin'), validate(objectIdSchema, 'params'), deleteUser)
 
 
 
