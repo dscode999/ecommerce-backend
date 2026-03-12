@@ -3,6 +3,7 @@ import { authenticate, authorize } from '../../../shared/middleware/auth.middlew
 import { addAddress, changePassword, deleteAddress, deleteUser, getAllUsers, getProfile, updateAddress, updateProfile, updateUserRole } from '../controller/user.controller.js'
 import {validate} from '../../../shared/middleware/validate.middleware.js'
 import { addAddressSchema, changePasswordSchema, updateProfileSchema } from '../user.schema.js'
+import { objectIdSchema } from '../../../shared/schemas/objectId.schema.js'
 const userRoute = express.Router()
 //=====User-PART
 userRoute.get('/profile', authenticate, authorize('customer'), getProfile)
