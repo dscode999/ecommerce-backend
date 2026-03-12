@@ -1,12 +1,12 @@
-
 import {
-  createProductService,
-  findProductById,
-  findProducts,
-  findProductsByCategory,
-  softDeleteProductService,
-  updateProductService
+    createProductService,
+    findProductById,
+    findProducts,
+    findProductsByCategory,
+    softDeleteProductService,
+    updateProductService
 } from '../products.service.js'
+import { deleteFromCloudinary } from '../../../shared/middleware/uploadToCloudinary.middleware.js'
 
 
 export const getAllProducts = async (req, res) => {
@@ -97,20 +97,6 @@ export const getProductById = async (req, res) => {
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export const createProduct = async (req, res) => {
     try {
 
@@ -121,7 +107,8 @@ export const createProduct = async (req, res) => {
             description,
             price,
             stock,
-            category
+            category,
+            images: req.imageUrls || []
         })
 
         res.status(201).json({
@@ -177,13 +164,20 @@ export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params
         const { name, description, price, stock, category } = req.body
-        const updatedProduct = await updateProductService(id, {
-                name,
-                description,
-                price,
-                stock,
-                category
-            })
+
+        const updateData = { name, description, price, stock, category }
+
+        // if new images uploaded — delete old ones first
+        if (req.imageUrls && req.imageUrls.length > 0) {
+            const existingProduct = await findProductById(id)
+            if (existingProduct.images.length > 0) {
+                await Promise.all(existingProduct.images.map(url => deleteFromCloudinary(url)))
+            }
+            updateData.images = req.imageUrls
+        }
+
+        const updatedProduct = await updateProductService(id, updateData)
+
         if (!updatedProduct) {
             return res.status(404).json({
                 status: 404,
@@ -199,20 +193,12 @@ export const updateProduct = async (req, res) => {
         })
 
     } catch (error) {
-        console.log(error);
-
         res.status(500).json({
             status: 500,
             message: "Failed to update product",
             data: null
         })
-
-
-
     }
-
-
-
 }
 export const deleteProduct = async (req, res) => {
     try {
@@ -220,6 +206,10 @@ export const deleteProduct = async (req, res) => {
         const { id } = req.params
 
         const deletedProduct = await softDeleteProductService(id)
+        // delete images from Cloudinary when product is soft deleted
+        if (deletedProduct.images.length > 0) {
+            await Promise.all(deletedProduct.images.map(url => deleteFromCloudinary(url)))
+        }
 
         if (!deletedProduct) {
             return res.status(404).json({
@@ -247,81 +237,81 @@ export const deleteProduct = async (req, res) => {
 
 export const addProductReview = async (req, res) => {
     try {
-      const { id } = req.params
-      const { rating, comment } = req.body
-      const userId = req.user.userId
-  
-      // ✅ בדיקת תקינות
-      if (!rating || rating < 1 || rating > 5) {
-        return res.status(400).json({
-          status: 400,
-          message: "Rating must be between 1 and 5",
-          data: null
-        })
-      }
-  
-      const product = await findProductById(id)
-  
-      if (!product || !product.isActive) {
-        return res.status(404).json({
-          status: 404,
-          message: "Product not found",
-          data: null
-        })
-      }
-  
-      // ✅ לוודא שמערך rating קיים
-      if (!product.rating) {
-        product.rating = []
-      }
-  
-      // ❌ בדיקה אם כבר דירג
-      const alreadyReviewed = product.rating.find(
-        review => review.user.toString() === userId
-      )
-  
-      if (alreadyReviewed) {
-        return res.status(400).json({
-          status: 400,
-          message: "You already reviewed this product",
-          data: null
-        })
-      }
-  
-      // ➕ הוספת ביקורת
-      product.rating.push({
-        user: userId,
-        rating: Number(rating),
-        comment
-      })
-  
-      // 🧮 חישוב ממוצע מחדש
-      const total = product.rating.reduce(
-        (sum, item) => sum + item.rating,
-        0
-      )
-  
-      product.averageRating = Number(
-        (total / product.rating.length).toFixed(1)
-      )
-  
-      await product.save()
-  
-      res.status(201).json({
-        status: 201,
-        message: "Review added successfully",
-        data: {
-          averageRating: product.averageRating,
-          totalReviews: product.rating.length
+        const { id } = req.params
+        const { rating, comment } = req.body
+        const userId = req.user.userId
+
+        // ✅ בדיקת תקינות
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({
+                status: 400,
+                message: "Rating must be between 1 and 5",
+                data: null
+            })
         }
-      })
-  
+
+        const product = await findProductById(id)
+
+        if (!product || !product.isActive) {
+            return res.status(404).json({
+                status: 404,
+                message: "Product not found",
+                data: null
+            })
+        }
+
+        // ✅ לוודא שמערך rating קיים
+        if (!product.rating) {
+            product.rating = []
+        }
+
+        // ❌ בדיקה אם כבר דירג
+        const alreadyReviewed = product.rating.find(
+            review => review.user.toString() === userId
+        )
+
+        if (alreadyReviewed) {
+            return res.status(400).json({
+                status: 400,
+                message: "You already reviewed this product",
+                data: null
+            })
+        }
+
+        // ➕ הוספת ביקורת
+        product.rating.push({
+            user: userId,
+            rating: Number(rating),
+            comment
+        })
+
+        // 🧮 חישוב ממוצע מחדש
+        const total = product.rating.reduce(
+            (sum, item) => sum + item.rating,
+            0
+        )
+
+        product.averageRating = Number(
+            (total / product.rating.length).toFixed(1)
+        )
+
+        await product.save()
+
+        res.status(201).json({
+            status: 201,
+            message: "Review added successfully",
+            data: {
+                averageRating: product.averageRating,
+                totalReviews: product.rating.length
+            }
+        })
+
     } catch (error) {
-      console.log(error)
-      res.status(500).json({
-        status: 500,
-        message: "Failed to add review",
-        data: null
-      })
+        console.log(error)
+        res.status(500).json({
+            status: 500,
+            message: "Failed to add review",
+            data: null
+        })
     }
-  }
+}
