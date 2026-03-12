@@ -1,21 +1,22 @@
 import Order from '../model/order.model.js'
 import Product from '../../products/model/product.model.js'
-
+import User from '../../users/model/user.model.js'
+// add to imports at top of order.controller.js
+import { sendOrderConfirmationEmail, sendOrderStatusUpdateEmail } from '../order.service.js'
 export const createOrder = async (req, res) => {
     try {
         const { items, shippingAddress, paymentMethod, notes } = req.body
-
         const userId = req.user.userId
-
-
 
         let totalPrice = 0
         const orderItems = []
+        const bulkOps = []        // ← new: collect all DB updates
 
         for (const item of items) {
             const product = await Product.findById(item.productId)
 
-            if (!product) {
+            // fix 1: also check isActive
+            if (!product || !product.isActive) {
                 return res.status(404).json({
                     success: false,
                     message: 'Product not found'
@@ -39,10 +40,18 @@ export const createOrder = async (req, res) => {
                 image: product.images?.[0] || ''
             })
 
-            product.stock -= item.quantity
-            product.sold += item.quantity
-
-            await product.save()
+            // fix 2: collect updates instead of save() inside loop
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: product._id },
+                    update: {
+                        $inc: {
+                            stock: -item.quantity,
+                            sold: item.quantity
+                        }
+                    }
+                }
+            })
         }
 
         const order = await Order.create({
@@ -54,12 +63,23 @@ export const createOrder = async (req, res) => {
             notes
         })
 
+        // one single DB call instead of one per product
+        await Product.bulkWrite(bulkOps)
+
+        // clear the user's cart
+        await User.findByIdAndUpdate(userId, { cart: [] })
+
+        // fix 3: send confirmation email
+        const user = await User.findById(userId)
+        await sendOrderConfirmationEmail(user, order)
+
         res.status(201).json({
             success: true,
             data: order
         })
 
     } catch (error) {
+        console.log('ORDER ERROR:', error)  // ← add this
         res.status(500).json({
             success: false,
             message: error.message
@@ -74,7 +94,7 @@ export const getAllOrdersToUser = async (req, res) => {
         const userId = req.user.userId
 
         const orders = await Order.find({ user: userId })
-            .sort({ createdAt: -1 }).populate('items.product', 'name price images')   // מהחדש לישן
+            .sort({ createdAt: -1 }).populate('items.product', 'name price images')   
 
         res.status(200).json({
             success: true,
@@ -106,7 +126,6 @@ export const getOrderById = async (req, res) => {
             })
         }
 
-        // אם לא אדמין – בדוק שההזמנה שייכת לו
         if (userRole !== 'admin' && order.user.toString() !== userId) {
             return res.status(403).json({
                 success: false,
@@ -166,16 +185,14 @@ export const getAllOrders = async (req, res) => {
 
 export const updateOrderStatus = async (req, res) => {
     try {
-
         const { id } = req.params
         const { orderStatus } = req.body
 
-
-        const order = await Order.findById(id)
+        const order = await Order.findById(id).populate('user', 'name email')
 
         if (!order) {
             return res.status(404).json({
-                status: 200,
+                status: 404,
                 success: false,
                 message: "Order not found"
             })
@@ -183,6 +200,9 @@ export const updateOrderStatus = async (req, res) => {
 
         order.orderStatus = orderStatus
         await order.save()
+
+        // send status update email to the customer
+        await sendOrderStatusUpdateEmail(order.user, order)
 
         res.status(200).json({
             status: 200,
