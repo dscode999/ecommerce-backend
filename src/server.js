@@ -28,8 +28,8 @@ app.use('/api', apiLimiter)             // rate limiting on all API routes
 
 // ===== Routes =====
 app.use("/api/v1/auth",authLimiter,authRout)
-app.use("/api/v1/product", productRouter)
-app.use("/api/v1/order", orderRouter)
+app.use("/api/v1/products", productRouter)
+app.use("/api/v1/orders", orderRouter)
 app.use("/api/v1/users", userRoute)
 app.use("/api/v1/cart", cartRoute)
 
