@@ -10,7 +10,7 @@ userRoute.get('/profile', authenticate, authorize('customer'), getProfile)
 userRoute.put('/profile', authenticate, authorize('customer'),validate(updateProfileSchema) ,updateProfile)
 userRoute.put('/change-password', authenticate, authorize('customer'),validate(changePasswordSchema) ,changePassword)
 userRoute.post('/addresses', authenticate, authorize('customer'),validate(addAddressSchema) ,addAddress)
-userRoute.put('/addresses/:addrId', authenticate, authorize('customer',), updateAddress)
+userRoute.put('/addresses/:addrId', authenticate, authorize('customer'),validate(addAddressSchema),validate(objectIdSchema, 'params'), updateAddress)
 userRoute.delete('/addresses/:addrId', authenticate, authorize('customer'), deleteAddress)
 //====Admin-PART
 userRoute.get('/', authenticate, authorize('admin'), getAllUsers)
