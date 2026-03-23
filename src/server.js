@@ -6,7 +6,7 @@ import hpp from 'hpp'
 import { connectDB } from './config/db.js'
 import { corsOptions } from './config/cors.js'
 import { errorHandler } from './shared/middleware/error.handler.js'
-import { apiLimiter, authLimiter } from './shared/middleware/rateLimiter.js' // ← add authLimiter
+import { apiLimiter, authLimiter } from './shared/middleware/rateLimiter.js'
 import authRout from './features/auth/routes/auth.route.js'
 import productRouter from './features/products/routes/product.route.js'
 import orderRouter from './features/orders/routes/order.route.js'
@@ -15,6 +15,7 @@ import cartRoute from './features/cart/routes/cart.route.js'
 
 const app = express()
 const port = process.env.PORT || 3010
+app.set('trust proxy', 1);
 
 // ===== Security Middleware =====
 app.use(helmet())                        // security headers
